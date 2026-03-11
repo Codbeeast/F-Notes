@@ -1,0 +1,34 @@
+{
+  "name": "forenotes_refer",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@clerk/nextjs": "^6.38.1",
+    "@clerk/themes": "^2.4.55",
+    "bcryptjs": "^3.0.3",
+    "cookie": "^1.1.1",
+    "framer-motion": "^12.34.3",
+    "jsonwebtoken": "^9.0.3",
+    "lucide-react": "^0.575.0",
+    "mongoose": "^9.2.2",
+    "nanoid": "^5.1.6",
+    "next": "^16.1.6",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "svix": "^1.86.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "babel-plugin-react-compiler": "1.0.0",
+    "eslint": "^10.0.1",
+    "eslint-config-next": "^16.1.6",
+    "tailwindcss": "^4"
+  }
+}

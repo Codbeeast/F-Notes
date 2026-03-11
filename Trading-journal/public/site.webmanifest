@@ -1,0 +1,22 @@
+{
+  "name": "ForeNotes",
+  "short_name": "ForeNotes",
+  "description": "Professional trade journal to track, analyze, and improve your trading performance",
+  "icons": [
+    {
+      "src": "/android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/android-chrome-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "theme_color": "#0f172a",
+  "background_color": "#070a12",
+  "display": "standalone",
+  "start_url": "/",
+  "orientation": "portrait"
+}

@@ -1,0 +1,313 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+/* Glassy gray scrollbar for Trade Journal table */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 10px;
+  height: 8px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(90deg, rgba(120,120,130,0.7) 60%, rgba(60,60,70,0.5) 100%);
+  border-radius: 8px;
+  border: 2px solid rgba(255,255,255,0.08);
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(20,20,30,0.4);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: inherit;
+}
+
+/* Firefox */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(120,120,130,0.7) rgba(20,20,30,0.4);
+}
+
+html,
+body {
+  font-family: 'Inter', sans-serif;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  height: 100%;
+  scroll-behavior: smooth;
+  transition: all 0.3s ease-in-out;
+  scrollbar-width: none;
+  /* Firefox */
+  -ms-overflow-style: none;
+  /* IE and Edge */
+}
+
+body::-webkit-scrollbar {
+  display: none;
+  /* Chrome, Safari and Opera */
+}
+
+/* Global box-sizing rules from index.css */
+*,
+*::before,
+*::after {
+  box-sizing: inherit;
+}
+
+:root {
+  --background-start-rgb: 2, 6, 23;
+  /* Equivalent to tailwind slate-950 */
+  --background-end-rgb: 0, 0, 0;
+
+  --foreground-rgb: 229, 231, 235;
+  /* text-gray-200 */
+  --foreground-muted-rgb: 156, 163, 175;
+  /* text-gray-400 */
+
+  --primary-blue: 59, 130, 246;
+  /* blue-500 */
+  --primary-purple: 139, 92, 246;
+  /* violet-500 */
+
+  --border-color: rgba(255, 255, 255, 0.1);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #111010;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  height: 100%;
+  scroll-behavior: smooth;
+  color: rgb(var(--foreground-rgb));
+  background: linear-gradient(
+      to bottom,
+      transparent,
+      rgb(var(--background-end-rgb))
+    )
+    rgb(var(--background-start-rgb));
+}
+
+.week-mode {
+  min-height: 420px;
+  /* Adjust based on your tooltip height */
+}
+
+/* Enhanced transition timing for sidebar */
+.sidebar-transition {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Content area smooth transitions */
+.content-transition {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform, opacity;
+}
+
+/* Prevent flash of unstyled content during transitions */
+.transition-wrapper {
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
+
+/* Smooth hover effects */
+.hover-smooth {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Performance optimization for animations */
+.gpu-accelerated {
+  transform: translateZ(0);
+  will-change: transform;
+}
+
+/* Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@keyframes float {
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar for IE, Edge and Firefox */
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  /* IE and Edge */
+  scrollbar-width: none;
+  /* Firefox */
+}
+
+/* For the speedometer needle/fill container */
+.center-speedometer-pivot {
+  /* Define the origin for rotation */
+  transform-origin: 50% calc(50% + 50px);
+  /* Adjust this value to match your needle's pivot point */
+  transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  /* Smooth ease-out */
+}
+
+/* Specific transition for the initial overshoot */
+.center-speedometer-pivot.overshoot-initial {
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  /* Faster, sharper overshoot */
+}
+
+/* For the segmented progress bar */
+.segmented-progress-bar div {
+  transition: background-color 0.3s ease-out, box-shadow 0.3s ease-out, transform 0.3s ease-out;
+}
+
+/* Add to your component or dashboard CSS */
+.pyramid-chart-container {
+  isolation: isolate;
+  transform: translateZ(0);
+  /* Force hardware acceleration */
+}
+
+
+/* Custom animations for the triangle charts */
+@keyframes pointExpand {
+  0% { 
+    opacity: 0; 
+    r: 0; 
+  }
+  50% { 
+    opacity: 1; 
+  }
+  100% { 
+    opacity: 1; 
+    r: 12; 
+  }
+}
+
+@keyframes fadeIn {
+  0% { 
+    opacity: 0; 
+    transform: translateY(10px); 
+  }
+  100% { 
+    opacity: 1; 
+    transform: translateY(0); 
+  }
+}
+
+@keyframes slideUp {
+  0% { 
+    opacity: 0; 
+    transform: translateY(20px); 
+  }
+  100% { 
+    opacity: 1; 
+    transform: translateY(0); 
+  }
+}
+
+/* Smooth transitions for interactive elements */
+.triangle-point {
+  transition: all 0.3s ease;
+}
+
+.triangle-point:hover {
+  r: 18;
+}
+
+/* Marquee Animation */
+@keyframes scroll {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-scroll {
+  animation: scroll 20s linear infinite;
+}
+
+@keyframes scroll-reverse {
+  0% {
+    transform: translateX(-50%);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+.animate-scroll-reverse {
+  animation: scroll-reverse 20s linear infinite;
+}
+
+/* Shimmer Animation for Feature Cards */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%) skewX(-15deg);
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(200%) skewX(-15deg);
+    opacity: 0;
+  }
+}
+
+/* Pricing toggle gradient background */
+.pricing-toggle-bg {
+  background: radial-gradient(96% 341% at 50% 7.5%, rgb(18, 20, 38) 0%, rgb(0, 0, 0) 100%);
+}
+
+/* Pricing card responsive utilities */
+@media (max-width: 640px) {
+  .pricing-card {
+    min-height: 450px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 1024px) {
+  .pricing-card {
+    min-height: 480px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+}
+
+/* Responsive utilities */
+@media (max-width: 640px) {
+  .hero-text-mobile {
+    word-break: break-word;
+    hyphens: auto;
+  }
+}
