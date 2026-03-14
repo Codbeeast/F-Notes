@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { ShieldAlert, ArrowRight, Activity, Mail, Lock, User, KeyRound, Loader2 } from "lucide-react";
+import { useState } from "react";
 
 export default function AdminSignUp() {
     const router = useRouter();
