@@ -86,6 +86,9 @@ function SignUpForm() {
             path="/auth/sign-up"
             routing="path"
             signInUrl="/auth/sign-in"
+            fallbackRedirectUrl="/dashboard"
+            signInForceRedirectUrl="/dashboard"
+            signInFallbackRedirectUrl="/dashboard"
           />
         </div>
       </div>

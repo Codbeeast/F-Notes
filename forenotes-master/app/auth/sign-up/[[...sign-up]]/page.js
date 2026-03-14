@@ -256,6 +256,9 @@ export default function SignUpPage() {
                     ? { referredBy: referralCode }
                     : undefined
                 }
+                fallbackRedirectUrl="/dashboard"
+                signInForceRedirectUrl="/dashboard"
+                signInFallbackRedirectUrl="/dashboard"
               />
             </div>
           </div>
