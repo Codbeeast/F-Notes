@@ -1,12 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
-// import { useRouter } from "next/navigation"; // Uncomment in Next.js environment
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { ShieldAlert, ArrowRight, Activity, Mail, Lock, User, KeyRound, Loader2 } from "lucide-react";
-
-// Mocking useRouter for preview environments. Remove this in your Next.js app.
-const useRouter = () => ({ push: console.log, refresh: console.log });
 
 export default function AdminSignUp() {
     const router = useRouter();

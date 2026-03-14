@@ -1,0 +1,23 @@
+{
+  "ReferralSignups": [],
+  "Referrals": [],
+  "UsersWithCodes": [
+    {
+      "id": "u69a1d2971d9d4e4bceef6191",
+      "code": "OHNYNoGZ",
+      "enabled": true
+    },
+    {
+      "id": "user_318xzqyXLywBgjkZSTqLgrkjrxn",
+      "code": "dQAuVhWB",
+      "enabled": true
+    }
+  ],
+  "ApprovedRequests": [
+    {
+      "userId": "user_3AuEdhWTygUa7l8S45ngVzFZLLM",
+      "code": "N9LYyUXl",
+      "status": "APPROVED"
+    }
+  ]
+}

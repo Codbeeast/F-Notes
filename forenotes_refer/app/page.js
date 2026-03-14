@@ -35,6 +35,7 @@ export default async function SignInPage() {
 
         {/* Clerk SignIn Component with customized appearance */}
         <SignIn
+          routing="hash"
           appearance={{
             baseTheme: dark,
             elements: {
@@ -45,14 +46,15 @@ export default async function SignInPage() {
               formButtonPrimary: "bg-blue-600 hover:bg-blue-500 text-white shadow-[0_0_20px_rgba(37,99,235,0.3)] transition-all rounded-xl",
               socialButtonsBlockButton: "bg-white/5 hover:bg-white/10 border border-white/10 transition-all",
               formFieldInput: "bg-black/40 border border-white/10 focus:border-blue-500/50 rounded-xl transition-colors",
-              footerActionLink: "text-blue-400 hover:text-blue-300 font-medium",
+              footerAction: "hidden", // Completely hides the "No account? Sign up" section
             },
             variables: {
               colorPrimary: "#2563eb",
               colorBackground: "rgba(15, 23, 42, 0.7)", // Deep slate background to blend well with the blur
             }
           }}
-          routing="hash"
+          fallbackRedirectUrl="/dashboard"
+          signUpUrl="/auth/sign-up"
         />
       </div>
     </div>

@@ -25,51 +25,30 @@ const referralSchema = new mongoose.Schema({
     },
 
     // Referral lifecycle status
-    // PENDING → PURCHASE_COMPLETED → REWARDED
-    // PENDING → REJECTED
     status: {
         type: String,
-        enum: ['PENDING', 'PURCHASE_COMPLETED', 'REWARDED', 'REJECTED'],
+        enum: ['PENDING', 'PURCHASE_COMPLETED', 'REWARDED'],
         default: 'PENDING',
         index: true
     },
 
-    // Reward amount in paise (computed from AdminSettings at time of reward)
+    // Reward details
     rewardAmount: {
         type: Number,
-        default: 0
+        default: 30 // ₹30 reward per successful referral
     },
 
-    // Purchase that triggered completion
+    // Subscription/Payment that triggered completion
     purchaseId: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Purchase',
+        ref: 'Subscription',
         default: null
     },
 
-    // Purchase amount in paise
-    purchaseAmount: {
-        type: Number,
-        default: null
-    },
-
-    // Timestamps for lifecycle transitions
-    purchaseCompletedAt: {
-        type: Date,
-        default: null
-    },
-
+    // When the referrer was rewarded
     rewardedAt: {
         type: Date,
         default: null
-    },
-
-    // Plan tracking for referred user
-    referredUserPlan: {
-        planType: { type: String, default: null },       // e.g. '1_MONTH', '3_MONTHS', 'TRIAL'
-        planAmount: { type: Number, default: null },      // in paise
-        subscribedAt: { type: Date, default: null },
-        subscriptionId: { type: String, default: null },  // external subscription ID from forenotes-master
     }
 
 }, {
@@ -83,7 +62,8 @@ referralSchema.index({ referredUserId: 1, status: 1 });
 // Static: find all referrals made by a user
 referralSchema.statics.findByReferrer = async function (referrerId) {
     return await this.find({ referrerId })
-        .sort({ createdAt: -1 });
+        .sort({ createdAt: -1 })
+        .populate('referredUserId', 'firstName lastName imageUrl createdAt');
 };
 
 // Static: find pending referral for a referred user

@@ -73,7 +73,21 @@ export async function GET(req) {
         }
 
         // Check if referral is enabled for this user
-        const hasAccess = user?.referralEnabled || isApprovedViaRequest;
+        // Also auto-grant access if user has any referral activity as a referrer
+        let hasAccess = user?.referralEnabled || isApprovedViaRequest;
+
+        // Auto-detect: if user has referral records as a referrer, grant access
+        // This bridges the gap when Trading-journal's webhook creates referrals
+        // but doesn't set referralEnabled on the referrer's User document
+        if (!hasAccess && user) {
+            const referralCount = await Referral.countDocuments({ referrerId: user._id });
+            if (referralCount > 0) {
+                hasAccess = true;
+                // Persist the flag so we don't need this check every time
+                await User.findByIdAndUpdate(user._id, { $set: { referralEnabled: true } });
+                console.log(`🔓 Auto-enabled referral access for ${user._id} (has ${referralCount} referral records)`);
+            }
+        }
 
         // Debug log for troubleshooting
         console.log(`🔍 Referral API: userId=${userId}, userFound=${!!user}, referralCode=${user?.referralCode || 'null'}, referralEnabled=${user?.referralEnabled}, hasAccess=${hasAccess}, isApprovedViaRequest=${isApprovedViaRequest}`);
@@ -104,8 +118,10 @@ export async function GET(req) {
             });
         }
 
+        const referrerId = user?._id || userId;
+
         // Fetch referrals where this user is the referrer
-        const referrals = await Referral.find({ referrerId: userLookedUpById ? userId : user._id })
+        const referrals = await Referral.find({ referrerId })
             .sort({ createdAt: -1 })
             .lean();
 
@@ -119,8 +135,8 @@ export async function GET(req) {
                     _id: ref._id,
                     referredUser: referredUser ? {
                         firstName: referredUser.firstName,
-                        lastName: referredUser.lastName,
-                        imageUrl: referredUser.imageUrl,
+                        lastName: referredUser.lastName || '',
+                        imageUrl: referredUser.imageUrl || '',
                     } : { firstName: 'Deleted', lastName: 'User', imageUrl: '' },
                     status: ref.status,
                     rewardAmount: ref.rewardAmount,
@@ -129,13 +145,13 @@ export async function GET(req) {
                     createdAt: ref.createdAt,
                     purchaseCompletedAt: ref.purchaseCompletedAt,
                     rewardedAt: ref.rewardedAt,
+                    referredUserPlan: ref.referredUserPlan || null,
                 };
             })
         );
 
         // Compute stats DIRECTLY from the Referral collection (source of truth)
         // This is more reliable than counter fields which may not be updated by all webhook handlers
-        const referrerId = userLookedUpById ? userId : user._id;
         const totalReferrals = await Referral.countDocuments({ referrerId });
         const pendingReferrals = await Referral.countDocuments({ referrerId, status: 'PENDING' });
         const completedReferrals = await Referral.countDocuments({ referrerId, status: { $in: ['PURCHASE_COMPLETED', 'REWARDED'] } });

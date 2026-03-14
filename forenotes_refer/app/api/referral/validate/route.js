@@ -8,12 +8,21 @@ export const runtime = 'nodejs';
 
 // GET: Validate a referral code (public endpoint)
 export async function GET(request) {
+    const corsHeaders = {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    };
+
     try {
         const { searchParams } = new URL(request.url);
         const code = searchParams.get('code');
 
         if (!code || code.length < 4) {
-            return NextResponse.json({ valid: false, message: 'Invalid referral code' }, { status: 400 });
+            return NextResponse.json({ valid: false, message: 'Invalid referral code' }, { 
+                status: 400,
+                headers: corsHeaders
+            });
         }
 
         await connectDB();
@@ -22,11 +31,11 @@ export async function GET(request) {
         let referrerImage = '';
 
         const referrer = await User.findOne({ referralCode: code })
-            .select('firstName imageUrl')
+            .select('firstName lastName imageUrl')
             .lean();
 
         if (referrer) {
-            referrerName = referrer.firstName || 'A friend';
+            referrerName = [referrer.firstName, referrer.lastName].filter(Boolean).join(' ') || 'A friend';
             referrerImage = referrer.imageUrl || '';
         } else {
             // Check ReferralAccessRequest as a fallback
@@ -35,11 +44,11 @@ export async function GET(request) {
                 .lean();
 
             if (accessRequest) {
-                // Determine first name
-                referrerName = accessRequest.name?.split(' ')[0] || 'A friend';
+                // Return full name from request
+                referrerName = accessRequest.name || 'A friend';
                 referrerImage = accessRequest.imageUrl || '';
             } else {
-                return NextResponse.json({ valid: false, message: 'Referral code not found' });
+                return NextResponse.json({ valid: false, message: 'Referral code not found' }, { headers: corsHeaders });
             }
         }
 
@@ -47,9 +56,12 @@ export async function GET(request) {
             valid: true,
             referrerName,
             referrerImage,
-        });
+        }, { headers: corsHeaders });
     } catch (error) {
         console.error('GET /api/referral/validate error:', error);
-        return NextResponse.json({ valid: false, message: 'Server error' }, { status: 500 });
+        return NextResponse.json({ valid: false, message: 'Server error' }, { 
+            status: 500,
+            headers: corsHeaders
+        });
     }
 }

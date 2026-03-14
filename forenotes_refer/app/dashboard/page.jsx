@@ -116,15 +116,14 @@ function AccessRequestScreen({ requestPending, requestStatus, onRequestAccess, r
                 <span className="text-emerald-400 text-2xl font-black tracking-widest font-mono">{referralCode}</span>
                 <button
                   onClick={() => {
-                    const link = `${origin}/refer/${referralCode}`;
-                    navigator.clipboard.writeText(link);
+                    navigator.clipboard.writeText(referralCode);
                   }}
                   className="text-xs bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 px-3 py-1.5 rounded-lg font-bold transition-all"
                 >
-                  Copy Link
+                  Copy Code
                 </button>
               </div>
-              <p className="text-slate-500 text-xs mt-2">You can share this link now. Full dashboard access is pending approval.</p>
+              <p className="text-slate-500 text-xs mt-2">Share this code with friends. Full dashboard access is pending approval.</p>
             </div>
           )}
 
@@ -230,8 +229,8 @@ export default function UserDashboard() {
   }, [data]);
 
   const handleCopy = () => {
-    if (!data?.referralCode || !origin) return;
-    navigator.clipboard.writeText(`${origin}/refer/${data.referralCode}`);
+    if (!data?.referralCode) return;
+    navigator.clipboard.writeText(data.referralCode);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -460,17 +459,17 @@ export default function UserDashboard() {
 
               <div className="space-y-2">
                 <h2 className="text-3xl font-black text-white tracking-tight">
-                  Multiply Your Value
+                  Your Referral Code
                 </h2>
                 <p className="text-slate-400 text-base leading-relaxed font-medium max-w-sm">
-                  Distribute your unique cryptographic link. Earn perpetual premium rewards for every successful conversion onboarded through your network.
+                  Share this code with friends. They can enter it during sign-up on ForeNotes to unlock rewards for both of you.
                 </p>
               </div>
 
-              <div className="mt-2 bg-[#020617]/80 backdrop-blur-md border border-white/10 rounded-xl p-1 flex items-center relative overflow-hidden group/input">
+              <div className="mt-2 bg-[#020617]/80 backdrop-blur-md border border-white/10 rounded-xl p-1 flex items-center justify-center relative overflow-hidden group/input">
                 <div className="absolute inset-0 bg-gradient-to-r from-blue-500/0 via-blue-500/5 to-transparent -translate-x-full group-hover/input:translate-x-0 transition-transform duration-700 pointer-events-none" />
-                <div className="px-4 py-3 text-sm font-mono text-blue-300 font-semibold truncate flex-1 select-all relative z-10">
-                  {origin}/refer/{data?.referralCode}
+                <div className="px-4 py-4 text-2xl font-mono text-blue-300 font-black tracking-[0.3em] select-all relative z-10 text-center">
+                  {data?.referralCode}
                 </div>
               </div>
             </div>
@@ -485,10 +484,10 @@ export default function UserDashboard() {
               <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent pointer-events-none" />
               {copied ? (
                 <>
-                  <CheckCircle className="w-5 h-5" /> Copied to Clipboard
+                  <CheckCircle className="w-5 h-5" /> Code Copied!
                 </>
               ) : (
-                "Copy Affiliate Link"
+                "Copy Referral Code"
               )}
             </button>
           </div>
@@ -523,12 +522,13 @@ export default function UserDashboard() {
               </div>
             ) : (
               <div className="overflow-x-auto flex-1">
-                <table className="w-full text-left min-w-[600px]">
+                <table className="w-full text-left min-w-[700px]">
                   <thead className="bg-[#020617]/60">
                     <tr className="text-[11px] font-black uppercase text-slate-500 tracking-wider">
-                      <th className="px-8 sm:px-10 py-5">Node Identity</th>
-                      <th className="px-8 sm:px-10 py-5">State</th>
-                      <th className="px-8 sm:px-10 py-5 text-right">Yield</th>
+                      <th className="px-6 sm:px-8 py-5">Referred User</th>
+                      <th className="px-6 sm:px-8 py-5">Status</th>
+                      <th className="px-6 sm:px-8 py-5">Plan</th>
+                      <th className="px-6 sm:px-8 py-5 text-right">Reward</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/[0.03]">
@@ -537,7 +537,7 @@ export default function UserDashboard() {
                         key={ref._id}
                         className="hover:bg-white/[0.03] transition-colors group cursor-default"
                       >
-                        <td className="px-8 sm:px-10 py-5">
+                        <td className="px-6 sm:px-8 py-5">
                           <div className="flex items-center gap-4">
                             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 border-2 border-white/10 flex items-center justify-center text-white font-black text-sm uppercase shrink-0 shadow-lg group-hover:border-white/20 transition-all">
                               {ref.referredUser?.firstName?.charAt(0) || "?"}
@@ -555,10 +555,26 @@ export default function UserDashboard() {
                             </div>
                           </div>
                         </td>
-                        <td className="px-8 sm:px-10 py-5">
+                        <td className="px-6 sm:px-8 py-5">
                           <StatusBadge status={ref.status} />
                         </td>
-                        <td className="px-8 sm:px-10 py-5 text-right">
+                        <td className="px-6 sm:px-8 py-5">
+                          {ref.referredUserPlan?.planType ? (
+                            <div className="flex flex-col">
+                              <span className="text-sm font-bold text-blue-300">
+                                {ref.referredUserPlan.planType.replace(/_/g, ' ')}
+                              </span>
+                              {ref.referredUserPlan.planAmount > 0 && (
+                                <span className="text-[11px] text-slate-500 mt-0.5">
+                                  ₹{(ref.referredUserPlan.planAmount / 100).toFixed(0)}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-slate-600 text-sm">—</span>
+                          )}
+                        </td>
+                        <td className="px-6 sm:px-8 py-5 text-right">
                           <span className={`font-black tracking-tight text-[15px] ${ref.rewardAmount > 0 ? 'text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.3)]' : 'text-slate-600'}`}>
                             {ref.rewardAmount > 0
                               ? `₹${ref.rewardAmountRupees}`

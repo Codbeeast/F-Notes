@@ -1,0 +1,19 @@
+[
+  {
+    "index": 1,
+    "id": "u69a1d2971d9d4e4bceef6191",
+    "name": "Abinash Das",
+    "email": "abinash9731+clerk_test@gmail.com",
+    "role": "admin",
+    "referralCode": "OHNYNoGZ",
+    "referredBy": "None"
+  },
+  {
+    "index": 2,
+    "id": "user_318xzqyXLywBgjkZSTqLgrkjrxn",
+    "name": "",
+    "role": "user",
+    "referralCode": "dQAuVhWB",
+    "referredBy": "None"
+  }
+]

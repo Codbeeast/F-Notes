@@ -4,6 +4,7 @@ import { connectDB } from '@/lib/db';
 import { requireAdmin } from '@/lib/adminAuth';
 import ReferralAccessRequest from '@/models/ReferralAccessRequest';
 import User from '@/models/User';
+import mongoose from 'mongoose';
 import { nanoid } from 'nanoid';
 
 export const runtime = 'nodejs';
@@ -143,21 +144,29 @@ export async function PATCH(req) {
                 referralCode = code;
             }
             
-            // Use findByIdAndUpdate to ensure we update even if user doesn't exist
-            const updatedUser = await User.findByIdAndUpdate(
-                request.clerkUserId,
+            // Use MongoDB's native collection.updateOne to bypass Mongoose's strict required fields
+            // (like username, firstName) in case the user hasn't fully logged into the main app yet.
+            const updatedUser = await mongoose.connection.collection('users').updateOne(
+                { _id: request.clerkUserId },
                 {
                     $set: {
                         referralCode,
-                        referralEnabled: true
+                        referralEnabled: true,
+                        updatedAt: new Date()
+                    },
+                    $setOnInsert: {
+                        createdAt: new Date(),
+                        email: request.email || '',
+                        firstName: request.name?.split(' ')[0] || 'Pending',
+                        lastName: request.name?.split(' ').slice(1).join(' ') || 'User',
+                        imageUrl: request.imageUrl || '',
+                        username: `user_${request.clerkUserId.substring(request.clerkUserId.length - 8)}`
                     }
                 },
-                { new: true }
+                { upsert: true }
             );
             
-            if (!updatedUser) {
-                console.warn(`⚠️ User ${request.clerkUserId} not found when approving request ${requestId}`);
-            } else {
+            if (updatedUser) {
                 console.log(`✅ User ${request.clerkUserId} approved with code: ${referralCode}`);
             }
         }
