@@ -108,8 +108,9 @@ function AccessRequestScreen({ requestPending, requestStatus, onRequestAccess, r
 
           <div className="w-full h-px bg-gradient-to-r from-transparent via-white/10 to-transparent my-4 relative z-10" />
 
-          {/* Show referral code if available, even during access pending */}
-          {referralCode && (
+          {/* Show referral code ONLY if they are approved (though AccessRequestScreen usually means they aren't, 
+              adding safety check just in case this component is reused) */}
+          {referralCode && requestStatus === 'APPROVED' && (
             <div className="w-full bg-[#0f172a]/80 border border-emerald-500/20 rounded-2xl px-6 py-5 relative z-10">
               <p className="text-emerald-400/70 text-xs font-bold uppercase tracking-wider mb-2">Your Referral Code</p>
               <div className="flex items-center justify-center gap-3">
@@ -123,7 +124,7 @@ function AccessRequestScreen({ requestPending, requestStatus, onRequestAccess, r
                   Copy Code
                 </button>
               </div>
-              <p className="text-slate-500 text-xs mt-2">Share this code with friends. Full dashboard access is pending approval.</p>
+              <p className="text-slate-500 text-xs mt-2">Share this code with friends to unlock rewards.</p>
             </div>
           )}
 
