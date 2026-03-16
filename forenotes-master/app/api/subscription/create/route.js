@@ -1,9 +1,11 @@
 // app/api/subscription/create/route.js
 import { auth, currentUser } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
+import mongoose from 'mongoose';
 import { connectDB } from '@/lib/db';
 import Plan from '@/models/Plan';
 import Subscription from '@/models/Subscription';
+import ReferralSignup from '@/models/ReferralSignup';
 import { createSubscription } from '@/lib/razorpay';
 import { isTrialEligible, createTrialSubscription } from '@/lib/subscription';
 
@@ -166,6 +168,47 @@ export async function POST(request) {
                 totalMonths: plan.totalMonths,
                 autoPayEnabled: true
             });
+        }
+
+        // --- Referral Reward (Direct DB) ---
+        try {
+            const referralSignup = await ReferralSignup.findOne({
+                userId,
+                status: 'RECORDED',
+            }).lean();
+
+            if (referralSignup && referralSignup.referrerId) {
+                const db = mongoose.connection.db;
+                const planAmountPaise = (plan.amount || 0) * 100; // convert rupees to paise
+
+                // Get referrer's commissionRate from users collection
+                const referrerUser = await db.collection('users').findOne({ _id: referralSignup.referrerId });
+                const commissionRate = referrerUser?.commissionRate || 10; // default 10%
+                const rewardAmount = Math.floor(planAmountPaise * (commissionRate / 100));
+
+                // Update the referral document in referrals collection
+                const result = await db.collection('referrals').updateOne(
+                    { referrerId: referralSignup.referrerId, referredUserId: userId },
+                    {
+                        $set: {
+                            rewardAmount: rewardAmount,
+                            purchaseAmount: planAmountPaise,
+                            status: 'REWARDED',
+                            rewardedAt: new Date(),
+                            referredUserPlan: {
+                                planType: planId,
+                                planAmount: planAmountPaise,
+                                subscribedAt: new Date(),
+                                subscriptionId: subscription._id.toString()
+                            }
+                        }
+                    }
+                );
+
+                console.log(`✅ Referral reward updated: referrer=${referralSignup.referrerId}, commission=${commissionRate}%, reward=₹${rewardAmount}, matched=${result.matchedCount}`);
+            }
+        } catch (refErr) {
+            console.error('⚠️ Referral tracking error (non-blocking):', refErr.message);
         }
 
         return NextResponse.json({

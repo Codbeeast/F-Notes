@@ -17,35 +17,45 @@ import { useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import Navbar from "../../components/Navbar";
-
 /* ---------------- Animated Counter ---------------- */
 function AnimatedCounter({ value, prefix = "" }) {
   const [display, setDisplay] = useState(0);
 
   useEffect(() => {
-    let start = 0;
     const end = Number(value) || 0;
-    if (!end) return;
+    if (end === 0) {
+      setDisplay(0);
+      return;
+    }
+
+    let start = display; // Start from current display value to animate smoothly between months
+    if (start === end) return;
 
     const duration = 800;
-    const increment = end / (duration / 16);
+    const diff = end - start;
+    const increment = diff / (duration / 16);
 
     const counter = setInterval(() => {
       start += increment;
-      if (start >= end) {
+      // If we are moving up and passed the end, or moving down and passed the end
+      if ((increment > 0 && start >= end) || (increment < 0 && start <= end)) {
         start = end;
         clearInterval(counter);
       }
-      setDisplay(Math.floor(start));
+      setDisplay(start);
     }, 16);
 
     return () => clearInterval(counter);
   }, [value]);
 
+  // Determine if we need to show decimals (if the actual target value is a float)
+  const isFloat = !Number.isInteger(Number(value));
+  const finalDisplay = isFloat ? display.toFixed(2) : Math.floor(display).toLocaleString();
+
   return (
     <span className="text-3xl sm:text-4xl font-bold tracking-tight text-white">
       {prefix}
-      {display.toLocaleString()}
+      {finalDisplay}
     </span>
   );
 }
@@ -224,10 +234,69 @@ export default function UserDashboard() {
     fetchData();
   }, [userId]);
 
+  const [selectedMonth, setSelectedMonth] = useState("all");
+
+  const availableMonths = useMemo(() => {
+    const months = [];
+    const now = new Date();
+    
+    // Generate the last 12 months
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthYear = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      months.push(monthYear);
+    }
+    
+    return months;
+  }, []);
+
+  const filteredReferrals = useMemo(() => {
+    if (!data?.referrals) return [];
+    if (selectedMonth === "all") return data.referrals;
+    return data.referrals.filter(ref => {
+      if (!ref.createdAt) return false;
+      const date = new Date(ref.createdAt);
+      const monthYear = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      return monthYear === selectedMonth;
+    });
+  }, [data?.referrals, selectedMonth]);
+
+  const dynamicStats = useMemo(() => {
+    if (selectedMonth === "all" && data?.stats) {
+      return {
+        total: data.stats.total,
+        completed: data.stats.completed,
+        pending: data.stats.pending,
+        rewardBalanceRupees: data.rewardBalanceRupees || "0.00"
+      };
+    }
+
+    let total = 0;
+    let completed = 0;
+    let pending = 0;
+    let rewardPaise = 0;
+
+    filteredReferrals.forEach(ref => {
+      total++;
+      if (ref.status === "PENDING") pending++;
+      else if (ref.status === "PURCHASE_COMPLETED" || ref.status === "REWARDED") {
+        completed++;
+        rewardPaise += (ref.rewardAmount || 0);
+      }
+    });
+
+    return {
+      total,
+      completed,
+      pending,
+      rewardBalanceRupees: (rewardPaise / 100).toFixed(2)
+    };
+  }, [filteredReferrals, data, selectedMonth]);
+
   const conversionRate = useMemo(() => {
-    if (!data?.stats?.total) return 0;
-    return Math.round((data.stats.completed / data.stats.total) * 100);
-  }, [data]);
+    if (!dynamicStats.total) return 0;
+    return Math.round((dynamicStats.completed / dynamicStats.total) * 100);
+  }, [dynamicStats]);
 
   const handleCopy = () => {
     if (!data?.referralCode) return;
@@ -289,13 +358,10 @@ export default function UserDashboard() {
     );
   }
 
-  // Convert paise to rupees for display
-  const balanceRupees = data?.rewardBalanceRupees || "0.00";
-
   const statCards = [
     {
       label: "Total Referred",
-      value: data?.stats?.total || 0,
+      value: dynamicStats.total || 0,
       prefix: "",
       subInfo: "Total users invited",
       icon: Users,
@@ -303,7 +369,7 @@ export default function UserDashboard() {
     },
     {
       label: "Successful",
-      value: data?.stats?.completed || 0,
+      value: dynamicStats.completed || 0,
       prefix: "",
       subInfo: `${conversionRate}% conversion rate`,
       icon: CheckCircle,
@@ -311,7 +377,7 @@ export default function UserDashboard() {
     },
     {
       label: "Pending",
-      value: data?.stats?.pending || 0,
+      value: dynamicStats.pending || 0,
       prefix: "",
       subInfo: "Awaiting completion",
       icon: Clock,
@@ -319,7 +385,7 @@ export default function UserDashboard() {
     },
     {
       label: "Total Earned",
-      value: parseFloat(balanceRupees),
+      value: parseFloat(dynamicStats.rewardBalanceRupees),
       prefix: "₹",
       subInfo: "Reward balance",
       icon: TrendingUp,
@@ -389,6 +455,30 @@ export default function UserDashboard() {
             Scale your network. Track performance. Earn exponential rewards.
           </p>
         </motion.div>
+
+        {/* Filter Section */}
+        {availableMonths.length > 0 && (
+          <div className="flex items-center justify-between -mb-4">
+            <h3 className="text-xl font-bold text-white tracking-tight">Performance</h3>
+            <select
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="bg-[#0f172a] border border-white/10 text-slate-300 text-sm rounded-xl focus:ring-blue-500 focus:border-blue-500 block px-4 py-2 outline-none appearance-none cursor-pointer hover:border-white/20 transition-colors shadow-lg font-medium"
+              style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2394a3b8' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: 'right 0.5rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.5em 1.5em', paddingRight: '2.5rem' }}
+            >
+              <option value="all">All Time</option>
+              {availableMonths.map(month => {
+                const [year, m] = month.split('-');
+                const date = new Date(year, parseInt(m) - 1);
+                return (
+                  <option key={month} value={month}>
+                    {date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
+                  </option>
+                )
+              })}
+            </select>
+          </div>
+        )}
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-6">
@@ -505,11 +595,11 @@ export default function UserDashboard() {
                 <h2 className="text-xl font-black text-white tracking-tight">Ledger</h2>
               </div>
               <div className="text-xs font-bold uppercase tracking-widest bg-white/[0.05] text-slate-300 px-4 py-2 rounded-xl border border-white/[0.08] shadow-inner">
-                {data?.referrals?.length || 0} Records
+                {filteredReferrals?.length || 0} Records
               </div>
             </div>
 
-            {!data?.referrals?.length ? (
+            {!filteredReferrals?.length ? (
               <div className="flex-1 flex flex-col items-center justify-center text-slate-500 gap-4 py-20 px-6 text-center">
                 <div className="w-20 h-20 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mb-2 shadow-inner">
                   <Users className="w-8 h-8 opacity-40 text-blue-400" />
@@ -533,7 +623,7 @@ export default function UserDashboard() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/[0.03]">
-                    {data.referrals.map((ref) => (
+                    {filteredReferrals.map((ref) => (
                       <tr
                         key={ref._id}
                         className="hover:bg-white/[0.03] transition-colors group cursor-default"

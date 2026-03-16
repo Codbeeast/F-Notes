@@ -80,7 +80,54 @@ export async function POST(req) {
             }).lean();
 
             if (existingRewarded) {
-                // Update plan tracking info even if already rewarded
+                // If it was previously rewarded with 0 (due to test webhooks firing empty),
+                // but now we have a real amount, we must retroactively calculate and fund the referrer!
+                if (existingRewarded.rewardAmount === 0 && amountPaise > 0) {
+                    const settings = await getSettings();
+                    const referrer = await User.findById(existingRewarded.referrerId).lean();
+                    const referrerCommissionRate = referrer?.commissionRate; 
+                    
+                    let rewardAmount = settings.fixedAmount;
+                    if (typeof referrerCommissionRate === 'number' && referrerCommissionRate > 0) {
+                        rewardAmount = Math.floor(amountPaise * (referrerCommissionRate / 100));
+                    } else if (settings.rewardMode === 'percentage') {
+                        rewardAmount = Math.floor(amountPaise * (settings.percentage / 100));
+                    }
+
+                    if (rewardAmount > 0) {
+                        const session = await mongoose.startSession();
+                        try {
+                            await session.withTransaction(async () => {
+                                await Referral.findByIdAndUpdate(existingRewarded._id, {
+                                    $set: {
+                                        rewardAmount,
+                                        purchaseAmount: amountPaise,
+                                        'referredUserPlan.planType': planType,
+                                        'referredUserPlan.planAmount': amountPaise,
+                                        'referredUserPlan.subscribedAt': new Date(),
+                                        'referredUserPlan.subscriptionId': subscriptionId || null,
+                                    }
+                                }, { session });
+
+                                await User.findByIdAndUpdate(existingRewarded.referrerId, {
+                                    $inc: { 'referralStats.rewardBalance': rewardAmount }
+                                }, { session });
+                            });
+                        } finally {
+                            await session.endSession();
+                        }
+                        console.log(`🎁 Retroactively rewarded ${existingRewarded.referrerId} with ${rewardAmount} paise (previous attempt was 0)`);
+                        
+                        return NextResponse.json({
+                            success: true,
+                            message: 'Plan tracking updated and retroactively rewarded',
+                            alreadyRewarded: true,
+                            retroactiveReward: true,
+                        }, { headers: corsHeaders });
+                    }
+                }
+
+                // Normal already rewarded fallback (just update tracking details)
                 await Referral.findByIdAndUpdate(existingRewarded._id, {
                     $set: {
                         'referredUserPlan.planType': planType,
@@ -92,7 +139,7 @@ export async function POST(req) {
 
                 return NextResponse.json({
                     success: true,
-                    message: 'Plan tracking updated (referral already rewarded)',
+                    message: 'Plan tracking updated (referral already rewarded with non-zero amount)',
                     alreadyRewarded: true,
                 }, { headers: corsHeaders });
             }
@@ -105,12 +152,19 @@ export async function POST(req) {
             }, { status: 404, headers: corsHeaders });
         }
 
-        // 4. Fetch admin settings for reward calculation
+        // 4. Fetch admin settings AND referrer's individual commission rate
         const settings = await getSettings();
+        const referrer = await User.findById(pendingReferral.referrerId).lean();
+        const referrerCommissionRate = referrer?.commissionRate; // e.g. 10 = 10%
 
         // 5. Compute reward amount
+        //    Priority: per-user commissionRate > global settings
         let rewardAmount;
-        if (settings.rewardMode === 'percentage') {
+        if (typeof referrerCommissionRate === 'number' && referrerCommissionRate > 0) {
+            // Admin assigned a custom commission % to this referrer
+            rewardAmount = Math.floor(amountPaise * (referrerCommissionRate / 100));
+            console.log(`💰 Using referrer's commissionRate: ${referrerCommissionRate}% → ₹${(rewardAmount/100).toFixed(2)}`);
+        } else if (settings.rewardMode === 'percentage') {
             rewardAmount = Math.floor(amountPaise * (settings.percentage / 100));
         } else {
             rewardAmount = settings.fixedAmount;

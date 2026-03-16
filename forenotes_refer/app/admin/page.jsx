@@ -56,6 +56,14 @@ export default function AdminDashboard() {
     const [accessRequests, setAccessRequests] = useState([]);
     const [accessLoading, setAccessLoading] = useState(false);
     const [processingRequest, setProcessingRequest] = useState(null);
+    const [approvingRequest, setApprovingRequest] = useState(null); // requestId currently in approval mode
+    const [commissionInputs, setCommissionInputs] = useState({}); // { [requestId]: value }
+
+    // Analytics Modal state
+    const [selectedReferrer, setSelectedReferrer] = useState(null); // { id, name, email }
+    const [referrerStats, setReferrerStats] = useState(null);
+    const [statsLoading, setStatsLoading] = useState(false);
+    const [statsTimeframe, setStatsTimeframe] = useState("all"); // 'all' or '12months'
 
     const handleLogout = async () => {
         try {
@@ -137,6 +145,26 @@ export default function AdminDashboard() {
         fetchAccess();
     }, [activeTab, router]);
 
+    // Fetch Referrer Stats
+    useEffect(() => {
+        if (!selectedReferrer) return;
+        async function fetchStats() {
+            setStatsLoading(true);
+            try {
+                const res = await fetch(`/api/admin/referrer-stats/${selectedReferrer.id}?timeframe=${statsTimeframe}`);
+                if (res.ok) {
+                    const json = await res.json();
+                    setReferrerStats(json);
+                }
+            } catch (err) {
+                console.error("Failed to fetch referrer stats:", err);
+            } finally {
+                setStatsLoading(false);
+            }
+        }
+        fetchStats();
+    }, [selectedReferrer, statsTimeframe]);
+
     // Save settings
     const handleSaveSettings = async () => {
         setSavingSettings(true);
@@ -188,20 +216,27 @@ export default function AdminDashboard() {
     };
 
     // Handle access request action
-    const handleAccessAction = async (requestId, action) => {
+    const handleAccessAction = async (requestId, action, commissionRate) => {
         setProcessingRequest(requestId);
         try {
+            const payload = { requestId, action };
+            if (action === "APPROVED" && commissionRate) {
+                payload.commissionRate = parseFloat(commissionRate);
+            }
             const res = await fetch("/api/admin/access-requests", {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ requestId, action }),
+                body: JSON.stringify(payload),
             });
             if (res.ok) {
                 setAccessRequests((prev) =>
                     prev.map((r) =>
-                        r._id === requestId ? { ...r, status: action } : r
+                        r._id === requestId
+                            ? { ...r, status: action, commissionRate: action === 'APPROVED' ? parseFloat(commissionRate) : r.commissionRate }
+                            : r
                     )
                 );
+                setApprovingRequest(null);
             }
         } catch (err) {
             console.error("Failed to process access request:", err);
@@ -705,34 +740,80 @@ export default function AdminDashboard() {
                                                         </div>
 
                                                         <div className="flex items-center gap-3">
+                                                            {/* Commission rate badge (for approved) */}
+                                                            {req.status === "APPROVED" && req.commissionRate != null && (
+                                                                <>
+                                                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                                                                        <TrendingUp className="w-3 h-3" />
+                                                                        {req.commissionRate}%
+                                                                    </span>
+                                                                    <button
+                                                                        onClick={() => setSelectedReferrer({ id: req.clerkUserId, name: req.user.name, email: req.user.email })}
+                                                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 hover:bg-indigo-500/20 transition-all text-xs font-semibold"
+                                                                    >
+                                                                        <Activity className="w-3 h-3" />
+                                                                        See Analytics
+                                                                    </button>
+                                                                </>
+                                                            )}
+
                                                             <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold ${asc.bg} ${asc.text}`}>
                                                                 <span className={`w-1.5 h-1.5 rounded-full ${asc.dot}`} />
                                                                 {asc.label}
                                                             </span>
 
                                                             {req.status === "REQUESTED" && (
-                                                                <div className="flex gap-1.5">
-                                                                    <button
-                                                                        onClick={() => handleAccessAction(req._id, "APPROVED")}
-                                                                        disabled={processingRequest === req._id}
-                                                                        className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 transition-all disabled:opacity-50 flex items-center justify-center"
-                                                                        title="Approve"
-                                                                    >
-                                                                        {processingRequest === req._id ? (
-                                                                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                                                        ) : (
-                                                                            <Check className="w-3.5 h-3.5" />
-                                                                        )}
-                                                                    </button>
-                                                                    <button
-                                                                        onClick={() => handleAccessAction(req._id, "REJECTED")}
-                                                                        disabled={processingRequest === req._id}
-                                                                        className="w-8 h-8 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-all disabled:opacity-50 flex items-center justify-center"
-                                                                        title="Reject"
-                                                                    >
-                                                                        <X className="w-3.5 h-3.5" />
-                                                                    </button>
-                                                                </div>
+                                                                approvingRequest === req._id ? (
+                                                                    // Inline approval form
+                                                                    <div className="flex items-center gap-1.5">
+                                                                        <div className="relative">
+                                                                            <input
+                                                                                type="number"
+                                                                                min="1"
+                                                                                max="100"
+                                                                                placeholder="10"
+                                                                                value={commissionInputs[req._id] || ""}
+                                                                                onChange={(e) => setCommissionInputs(prev => ({ ...prev, [req._id]: e.target.value }))}
+                                                                                className="w-20 bg-[#0a0f1e] border border-purple-500/30 rounded-lg py-1.5 pl-2 pr-6 text-sm text-white focus:outline-none focus:ring-1 focus:ring-purple-500/50 font-mono"
+                                                                                autoFocus
+                                                                            />
+                                                                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-purple-400 text-xs font-bold">%</span>
+                                                                        </div>
+                                                                        <button
+                                                                            onClick={() => handleAccessAction(req._id, "APPROVED", commissionInputs[req._id] || "10")}
+                                                                            disabled={processingRequest === req._id}
+                                                                            className="px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 transition-all disabled:opacity-50 flex items-center gap-1 text-xs font-semibold"
+                                                                        >
+                                                                            {processingRequest === req._id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                                                                            Confirm
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={() => setApprovingRequest(null)}
+                                                                            className="w-7 h-7 rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:text-white flex items-center justify-center transition-all"
+                                                                        >
+                                                                            <X className="w-3 h-3" />
+                                                                        </button>
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="flex gap-1.5">
+                                                                        <button
+                                                                            onClick={() => setApprovingRequest(req._id)}
+                                                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 transition-all text-xs font-semibold"
+                                                                            title="Approve with commission %"
+                                                                        >
+                                                                            <Check className="w-3 h-3" />
+                                                                            Approve
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={() => handleAccessAction(req._id, "REJECTED")}
+                                                                            disabled={processingRequest === req._id}
+                                                                            className="w-8 h-8 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-all disabled:opacity-50 flex items-center justify-center"
+                                                                            title="Reject"
+                                                                        >
+                                                                            <X className="w-3.5 h-3.5" />
+                                                                        </button>
+                                                                    </div>
+                                                                )
                                                             )}
                                                         </div>
                                                     </div>
@@ -746,6 +827,144 @@ export default function AdminDashboard() {
                     </AnimatePresence>
                 </div>
             </main>
+
+            {/* ─── MODAL: Referrer Analytics ─── */}
+            <AnimatePresence>
+                {selectedReferrer && (
+                    <>
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100]"
+                            onClick={() => {
+                                setSelectedReferrer(null);
+                                setReferrerStats(null);
+                                setStatsTimeframe("all");
+                            }}
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                            className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-2xl bg-[#0f1523] border border-white/10 rounded-2xl shadow-2xl z-[101] overflow-hidden flex flex-col max-h-[90vh]"
+                        >
+                            {/* Modal Header */}
+                            <div className="flex items-center justify-between px-6 py-5 border-b border-white/10 bg-white/[0.02] shrink-0">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+                                        <Activity className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-lg font-bold text-white leading-tight">Partner Analytics</h3>
+                                        <p className="text-sm text-slate-400 mt-0.5">{selectedReferrer.name}</p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        setSelectedReferrer(null);
+                                        setReferrerStats(null);
+                                        setStatsTimeframe("all");
+                                    }}
+                                    className="w-8 h-8 rounded-lg hover:bg-white/5 flex items-center justify-center text-slate-400 hover:text-white transition-colors"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+
+                            {/* Modal Body */}
+                            <div className="p-6 overflow-y-auto">
+                                {/* Filters & Meta */}
+                                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
+                                    <div className="flex bg-white/[0.04] p-1 rounded-lg border border-white/5">
+                                        <select
+                                            value={statsTimeframe}
+                                            onChange={(e) => setStatsTimeframe(e.target.value)}
+                                            className="bg-transparent text-sm font-medium text-slate-300 px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 rounded-md appearance-none cursor-pointer"
+                                        >
+                                            <option value="all" className="bg-[#0f1523] text-slate-300">Filter: All Time</option>
+                                            {Array.from({ length: 12 }).map((_, i) => {
+                                                const d = new Date();
+                                                d.setMonth(d.getMonth() - i);
+                                                const year = d.getFullYear();
+                                                const monthStr = String(d.getMonth() + 1).padStart(2, '0');
+                                                const label = d.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+                                                return (
+                                                    <option key={`${year}-${monthStr}`} value={`${year}-${monthStr}`} className="bg-[#0f1523] text-slate-300">
+                                                        {label}
+                                                    </option>
+                                                );
+                                            })}
+                                        </select>
+                                    </div>
+                                    
+                                    {!statsLoading && referrerStats && (
+                                        <div className="flex items-center gap-3">
+                                            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-orange-500/10 border border-orange-500/20">
+                                                <TrendingUp className="w-4 h-4 text-orange-400" />
+                                                <span className="text-xs font-semibold text-orange-400">Commission: {referrerStats.commissionRate}%</span>
+                                            </div>
+                                            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10">
+                                                <Sparkles className="w-4 h-4 text-slate-400" />
+                                                <code className="text-xs font-mono font-bold text-slate-300">{referrerStats.referralCode}</code>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Stats Grid */}
+                                {statsLoading ? (
+                                    <div className="flex flex-col items-center justify-center py-20">
+                                        <Loader2 className="w-8 h-8 animate-spin text-indigo-400 mb-4" />
+                                        <p className="text-sm text-slate-500">Compiling partner statistics...</p>
+                                    </div>
+                                ) : referrerStats ? (
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="bg-white/[0.02] border border-white/[0.06] rounded-xl p-5 flex flex-col">
+                                            <div className="flex items-center gap-2 mb-3">
+                                                <Users className="w-4 h-4 text-blue-400" />
+                                                <span className="text-sm font-medium text-slate-400">Total Referred</span>
+                                            </div>
+                                            <span className="text-3xl font-bold text-white">{referrerStats.stats.totalReferred}</span>
+                                        </div>
+                                        
+                                        <div className="bg-white/[0.02] border border-white/[0.06] rounded-xl p-5 flex flex-col">
+                                            <div className="flex items-center gap-2 mb-3">
+                                                <CheckCircle className="w-4 h-4 text-emerald-400" />
+                                                <span className="text-sm font-medium text-slate-400">Successful</span>
+                                            </div>
+                                            <span className="text-3xl font-bold text-white">{referrerStats.stats.successful}</span>
+                                        </div>
+                                        
+                                        <div className="bg-white/[0.02] border border-white/[0.06] rounded-xl p-5 flex flex-col">
+                                            <div className="flex items-center gap-2 mb-3">
+                                                <Clock className="w-4 h-4 text-amber-400" />
+                                                <span className="text-sm font-medium text-slate-400">Pending</span>
+                                            </div>
+                                            <span className="text-3xl font-bold text-white">{referrerStats.stats.pending}</span>
+                                        </div>
+                                        
+                                        <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-xl p-5 flex flex-col relative overflow-hidden group">
+                                            <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 to-transparent pointer-events-none" />
+                                            <div className="flex items-center gap-2 mb-3 relative z-10">
+                                                <Gift className="w-4 h-4 text-indigo-400" />
+                                                <span className="text-sm font-medium text-indigo-300">Total Earned</span>
+                                            </div>
+                                            <span className="text-3xl font-extrabold text-white relative z-10 tracking-tight">
+                                                ₹{referrerStats.stats.totalEarnedRupees}
+                                            </span>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center justify-center py-20 text-red-400 text-sm">
+                                        Failed to load statistics.
+                                    </div>
+                                )}
+                            </div>
+                        </motion.div>
+                    </>
+                )}
+            </AnimatePresence>
         </div>
     );
 }

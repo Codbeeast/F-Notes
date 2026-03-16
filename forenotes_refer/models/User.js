@@ -22,6 +22,7 @@ const userSchema = new mongoose.Schema({
     // Referral system
     referralCode: { type: String, unique: true, sparse: true },
     referralEnabled: { type: Boolean, default: false },
+    commissionRate: { type: Number, default: 10 }, // admin-assigned commission % per referrer
 
     referredBy: {
         clerkUserId: { type: String, default: null },

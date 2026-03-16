@@ -64,9 +64,17 @@ export async function POST(req) {
             });
         }
 
-        // 4. Compute reward amount (integer math, paise)
+        // 4. Fetch referrer's individual commissionRate (admin-assigned at approval)
+        const referrer = await User.findById(pendingReferral.referrerId).lean();
+        const referrerCommissionRate = referrer?.commissionRate; // e.g. 10 = 10%
+
+        // 5. Compute reward amount (integer math, paise)
+        //    Priority: per-user commissionRate > global settings
         let rewardAmount;
-        if (settings.rewardMode === 'percentage') {
+        if (typeof referrerCommissionRate === 'number' && referrerCommissionRate > 0) {
+            // Admin assigned a custom commission % to this referrer
+            rewardAmount = Math.floor(amountPaise * (referrerCommissionRate / 100));
+        } else if (settings.rewardMode === 'percentage') {
             rewardAmount = Math.floor(amountPaise * (settings.percentage / 100));
         } else {
             rewardAmount = settings.fixedAmount;

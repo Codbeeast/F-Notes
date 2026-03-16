@@ -70,10 +70,23 @@ export async function GET() {
                     };
                 }
 
+                let finalCommissionRate = req.status === 'APPROVED' ? 10 : undefined;
+                if (req.status === 'APPROVED') {
+                    if (user && user.commissionRate != null) {
+                        finalCommissionRate = user.commissionRate;
+                    } else {
+                        const dbUser = await User.findById(req.clerkUserId).select('commissionRate').lean();
+                        if (dbUser && dbUser.commissionRate != null) {
+                            finalCommissionRate = dbUser.commissionRate;
+                        }
+                    }
+                }
+
                 return {
                     _id: req._id,
                     clerkUserId: req.clerkUserId,
                     status: req.status,
+                    commissionRate: finalCommissionRate,
                     requestedAt: req.requestedAt,
                     reviewedAt: req.reviewedAt,
                     reviewedBy: req.reviewedBy,
@@ -101,7 +114,7 @@ export async function PATCH(req) {
         }
 
         const body = await req.json();
-        const { requestId, action } = body; // action: 'APPROVED' | 'REJECTED'
+        const { requestId, action, commissionRate } = body; // action: 'APPROVED' | 'REJECTED'
 
         if (!requestId || !['APPROVED', 'REJECTED'].includes(action)) {
             return NextResponse.json(
@@ -152,6 +165,7 @@ export async function PATCH(req) {
                     $set: {
                         referralCode,
                         referralEnabled: true,
+                        commissionRate: typeof commissionRate === 'number' && commissionRate > 0 ? commissionRate : 10,
                         updatedAt: new Date()
                     },
                     $setOnInsert: {

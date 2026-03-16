@@ -4,7 +4,6 @@ import { connectDB } from '@/lib/db';
 import Subscription from '@/models/Subscription';
 import Payment from '@/models/Payment';
 import User from '@/models/User';
-import ReferralSignup from '@/models/ReferralSignup';
 import { verifyWebhookSignature } from '@/lib/razorpay';
 
 export async function POST(request) {
@@ -207,44 +206,6 @@ async function handleSubscriptionCharged(data) {
 
     await dbSubscription.save();
     console.log('Subscription charged successfully:', payment.entity.id);
-
-    // --- Referral Tracking ---
-    // If this user was referred, notify forenotes_refer about the purchase
-    try {
-        const referralSignup = await ReferralSignup.findOne({
-            userId: dbSubscription.userId,
-            status: 'RECORDED',
-        }).lean();
-
-        if (referralSignup) {
-            const referAppUrl = process.env.REFER_APP_URL;
-            const apiSecret = process.env.REFERRAL_API_SECRET;
-
-            if (referAppUrl && apiSecret) {
-                const trackRes = await fetch(`${referAppUrl}/api/referral/track-plan`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'x-referral-secret': apiSecret,
-                    },
-                    body: JSON.stringify({
-                        referredUserId: dbSubscription.userId,
-                        planType: dbSubscription.planType,
-                        planAmount: (payment.entity.amount || 0), // amount in paise from Razorpay
-                        subscriptionId: dbSubscription._id.toString(),
-                    }),
-                });
-
-                const trackData = await trackRes.json();
-                console.log(`📊 Referral plan tracking: ${trackRes.ok ? '✅' : '❌'}`, trackData.message);
-            } else {
-                console.warn('⚠️ REFER_APP_URL or REFERRAL_API_SECRET not configured, skipping referral tracking');
-            }
-        }
-    } catch (refErr) {
-        // Non-blocking: don't fail the webhook for referral tracking errors
-        console.error('⚠️ Referral tracking error (non-blocking):', refErr.message);
-    }
 }
 
 // Handle subscription completed

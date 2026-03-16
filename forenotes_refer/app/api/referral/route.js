@@ -162,17 +162,26 @@ export async function GET(req) {
             completed: completedReferrals,
         };
 
-        // Sum reward amounts from completed/rewarded referrals
+        // Sum reward amounts and purchase volumes from completed/rewarded referrals
         const rewardAgg = await Referral.aggregate([
             { $match: { referrerId, status: { $in: ['PURCHASE_COMPLETED', 'REWARDED'] } } },
-            { $group: { _id: null, total: { $sum: '$rewardAmount' } } }
+            { 
+                $group: { 
+                    _id: null, 
+                    totalReward: { $sum: '$rewardAmount' },
+                    totalVolume: { $sum: '$purchaseAmount' }
+                } 
+            }
         ]);
-        const rewardBalancePaise = rewardAgg[0]?.total || user?.referralStats?.rewardBalance || 0;
+        const rewardBalancePaise = rewardAgg[0]?.totalReward || user?.referralStats?.rewardBalance || 0;
+        const purchaseVolumePaise = rewardAgg[0]?.totalVolume || 0;
 
         return NextResponse.json({
             referralCode: finalCode,
             rewardBalance: rewardBalancePaise,
             rewardBalanceRupees: (rewardBalancePaise / 100).toFixed(2),
+            purchaseVolumePaise: purchaseVolumePaise,
+            purchaseVolumeRupees: (purchaseVolumePaise / 100).toFixed(2),
             referrals: enrichedReferrals,
             stats,
             accessRequired: false,
